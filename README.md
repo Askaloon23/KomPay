@@ -60,4 +60,58 @@ TechSupport/
 ├── .gitignore                  # Файл исключений для системы контроля версий Git
 ├── README.md                   # Основная документация проекта
 └── requirements.txt            # Список внешних зависимостей проекта
-|
+
+
+
+
+## Запуск проекта
+
+1. Клонирование репозитория<br>
+git clone <URL-репозитория-KomPaY><br>
+2. Переход в каталог проекта<br>
+cd KomPaY<br>
+3. Создание виртуального окружения<br>
+
+Windows:
+
+python -m venv venv
+
+Linux/macOS:
+
+python3 -m venv venv<br>
+4. Активация виртуального окружения<br>
+
+Windows:
+
+venv\Scripts\activate<br>
+
+Linux/macOS:
+
+source venv/bin/activate<br>
+5. Установка зависимостей<br>
+pip install -r requirements.txt<br>
+6. Запуск программы<br>
+
+Windows:
+
+python src/kompAY/main.py
+
+Linux/macOS:
+
+python3 src/kompAY/main.py
+
+После запуска пользователю будет доступно основное меню программы KomPaY.
+
+Тестирование
+
+Для проверки работоспособности программы предусмотрены автоматизированные модульные тесты.
+
+Для запуска тестов выполните:
+
+Windows:
+
+python -m unittest discover -s tests
+
+Linux/macOS:
+
+python3 -m unittest discover -s tests
