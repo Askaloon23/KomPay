@@ -129,3 +129,8 @@ python -m unittest discover -s tests
 python3 -m unittest discover -s tests
 ```
 
+**Исходный код проекта находится в каталоге:**
+```
+scr/main.py
+```
+
