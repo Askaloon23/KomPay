@@ -18,3 +18,6 @@ KomPaY — приложение для учёта коммунальных ус�
 
 ## Моделирование системы (Use Case)
 
+<img width="1179" height="1263" alt="image" src="https://github.com/user-attachments/assets/44d0ff09-a39a-4b41-90dc-01897b671f81" />
+
+
