@@ -48,7 +48,7 @@ KomPay/
 │   |── UseCase.png             # Изображение Use Case диаграммы
 |	|-- buchgalter.jpg			# Блок-схема бухгалтера		
 |	|-- platelchik.jpg			# Блок-схема плательщика
-| |—- UseCase.plantuml
+|  |—- UseCase.plantuml
 │
 ├── src/                        # Исходный код приложения
 │   │         
