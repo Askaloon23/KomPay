@@ -1,0 +1,88 @@
+@startuml
+left to right direction
+
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam linetype ortho
+skinparam actorStyle stickman
+skinparam usecase {
+    BackgroundColor white
+    BorderColor gray
+    ArrowColor black
+}
+skinparam defaultFontName Arial
+
+rectangle "Система учёта коммунальных услуг" {
+
+    ' ===== ЖИЛЕЦ =====
+    usecase "Регистрация" as UC_Register
+    usecase "Авторизация" as UC_ResidentAuth
+    usecase "Просмотреть\nначисления" as UC_ViewCharges
+    usecase "Просмотреть\nзадолженность" as UC_ViewDebt
+    usecase "Проверить сумму\nзадолженности" as UC_CheckDebt
+    usecase "Оплатить\nкоммунальные услуги" as UC_PayUtilities
+    usecase "Провести платёж" as UC_ProcessPayment
+    usecase "Получить\nподтверждение" as UC_GetConfirmation
+    usecase "Получить квитанцию" as UC_GetReceipt
+    usecase "Рассчитать\nначисления" as UC_CalculateCharges
+
+    ' ===== БУХГАЛТЕР =====
+    usecase "Авторизация" as UC_AccountantAuth
+    usecase "Зарегистрировать\nплатёж" as UC_RegisterPayment
+    usecase "Внести начисления" as UC_EnterCharges
+    usecase "Проверить данные" as UC_CheckPaymentData
+    usecase "Проверить данные" as UC_CheckChargeData
+    usecase "Исправить данные" as UC_CorrectData
+    usecase "Сформировать отчёт" as UC_GenerateReport
+    usecase "Подготовить отчёт" as UC_PrepareReport
+
+    ' ===== АДМИНИСТРАТОР =====
+    usecase "Авторизация" as UC_AdminAuth
+    usecase "Управление\nпользователями" as UC_ManageUsers
+    usecase "Добавить/Изменить/\nУдалить пользователя" as UC_EditUsers
+    usecase "Управление\nсправочником" as UC_ManageDirectory
+    usecase "Редактировать\nсправочник" as UC_EditDirectory
+}
+
+' ===== АКТЁРЫ =====
+actor "Жилец" as Resident
+actor "Бухгалтер" as Accountant
+actor "Администратор" as Admin
+actor "Платёжная\nсистема" as PaymentSystem
+
+' ===== СВЯЗИ ЖИЛЬЦА =====
+Resident -- UC_Register
+Resident -- UC_ResidentAuth
+Resident -- UC_ViewCharges
+Resident -- UC_ViewDebt
+Resident -- UC_PayUtilities
+Resident -- UC_GetReceipt
+
+UC_ViewDebt ..> UC_CheckDebt : <<include>>
+UC_PayUtilities ..> UC_ProcessPayment : <<include>>
+UC_PayUtilities ..> UC_GetConfirmation : <<include>>
+UC_GetReceipt ..> UC_CalculateCharges : <<include>>
+
+' ===== ПЛАТЁЖНАЯ СИСТЕМА =====
+PaymentSystem -- UC_ProcessPayment
+
+' ===== СВЯЗИ БУХГАЛТЕРА =====
+Accountant -- UC_AccountantAuth
+Accountant -- UC_RegisterPayment
+Accountant -- UC_EnterCharges
+Accountant -- UC_CorrectData
+Accountant -- UC_GenerateReport
+
+UC_RegisterPayment ..> UC_CheckPaymentData : <<extend>>
+UC_EnterCharges ..> UC_CheckChargeData : <<extend>>
+UC_GenerateReport ..> UC_PrepareReport : <<include>>
+
+' ===== СВЯЗИ АДМИНИСТРАТОРА =====
+Admin -- UC_AdminAuth
+Admin -- UC_ManageUsers
+Admin -- UC_ManageDirectory
+
+UC_ManageUsers --> UC_EditUsers
+UC_ManageDirectory --> UC_EditDirectory
+
+@enduml
