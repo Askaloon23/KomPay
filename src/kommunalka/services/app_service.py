@@ -1,41 +1,71 @@
-from repositories.repositories import (users, roles, services, methods, accruals, payments, receipts)
-from services.auth_service import register
+from repositories import user_repository, service_repository, accrual_repository, payment_repository
 
-REPOSITORIES = {
- 'Роли пользователей': (roles, ('name',)),
- 'Услуги': (services, ('name','unit','tariff')),
- 'Способы оплаты': (methods, ('name',)),
- 'Пользователи': (users, ('login','password','full_name','address','user_role')),
- 'Начисления': (accruals, ('resident_id','service_id','accountant_id','period','volume','amount')),
- 'Платежи': (payments, ('accrual_id','method_id','amount','payment_date','status')),
- 'Квитанции': (receipts, ('payment_id','number','issue_date')),
-}
+def create_accrual(user_id: int, service_id: int, amount: float, period: str,
+                   accountant_id: int | None = None, volume: float | None = None) -> int:
+    user = user_repository.get_by_id(user_id)
+    if not user:
+        raise Exception("Жилец с таким ID не найден")
+    if user.role_id != 3:
+        raise Exception("Начисление можно создавать только для жильца")
 
-def create_accrual(resident_id, service_id, accountant_id, period, volume):
-    resident = users.get_by_id(int(resident_id)); accountant = users.get_by_id(int(accountant_id))
-    service = services.get_by_id(int(service_id))
-    if not resident: raise ValueError('Жилец не найден.')
-    if not accountant: raise ValueError('Бухгалтер не найден.')
-    if not service: raise ValueError('Услуга не найдена.')
-    if len(period) != 7 or period[4] != '-' or not period[:4].isdigit() or not period[5:].isdigit():
-        raise ValueError('Период должен иметь формат ГГГГ-ММ.')
-    if not 1 <= int(period[5:]) <= 12: raise ValueError('Месяц должен быть от 01 до 12.')
-    volume = float(volume)
-    if volume <= 0: raise ValueError('Объём должен быть больше нуля.')
-    amount = round(volume * float(service.tariff), 2)
-    return accruals.create(resident_id=int(resident_id), service_id=int(service_id),
-        accountant_id=int(accountant_id), period=period, volume=volume, amount=amount)
+    service = service_repository.get_by_id(service_id)
+    if not service:
+        raise Exception("Услуга с таким ID не найдена")
 
-def create_payment(accrual_id, method_id, amount, payment_date):
-    a = accruals.get_by_id(int(accrual_id)); m = methods.get_by_id(int(method_id))
-    if not a: raise ValueError('Начисление не найдено.')
-    if not m: raise ValueError('Способ оплаты не найден.')
-    amount = float(amount)
-    if amount <= 0 or amount > float(a.amount): raise ValueError('Сумма должна быть больше нуля и не превышать начисление.')
-    return payments.create(accrual_id=int(accrual_id), method_id=int(method_id), amount=amount,
-                           payment_date=payment_date, status='confirmed')
+    if amount <= 0:
+        raise Exception("Сумма начисления должна быть больше 0")
 
-def issue_receipt(payment_id, number, issue_date):
-    if not payments.get_by_id(int(payment_id)): raise ValueError('Платёж не найден.')
-    if not number.strip(): raise ValueError('Номер квитанции обязателен.')
-    return receipts.create(payment_id=int(payment_id), number=number.strip(), issue_date=issue_date)
+    return accrual_repository.create(
+        user_id=user_id,
+        service_id=service_id,
+        amount=amount,
+        period=period,
+        accountant_id=accountant_id,
+        volume=volume
+    )
+
+def create_payment(user_id: int, amount: float, accrual_id: int | None = None,
+                   payment_method_id: int | None = None, cashier_id: int | None = None) -> int:
+    user = user_repository.get_by_id(user_id)
+    if not user:
+        raise Exception("Жилец с таким ID не найден")
+
+    if amount <= 0:
+        raise Exception("Сумма платежа должна быть больше 0")
+
+    if accrual_id:
+        accrual = accrual_repository.get_by_id(accrual_id)
+        if not accrual:
+            raise Exception("Начисление с таким ID не найдено")
+
+    return payment_repository.create(
+        user_id=user_id,
+        amount=amount,
+        accrual_id=accrual_id,
+        payment_method_id=payment_method_id,
+        cashier_id=cashier_id
+    )
+
+def issue_receipt(payment_id: int) -> str:
+    payment = payment_repository.get_by_id(payment_id)
+    if not payment:
+        raise Exception("Платёж с таким ID не найден")
+
+    user = user_repository.get_by_id(payment.user_id)
+    method_name = "Не указан"
+    if payment.payment_method_id:
+        # Простая заглушка названий
+        methods = {1: "Наличные", 2: "Карта", 3: "Перевод"}
+        method_name = methods.get(payment.payment_method_id, "Не указан")
+
+    receipt = f"""
+========== КВИТАНЦИЯ ==========
+Номер платежа: {payment.id}
+Жилец: {user.full_name if user else 'Неизвестен'}
+Сумма: {payment.amount:.2f} руб.
+Способ оплаты: {method_name}
+Дата: {payment.paid_at}
+===============================
+"""
+    print(receipt)
+    return receipt

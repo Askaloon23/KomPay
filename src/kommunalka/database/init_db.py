@@ -1,58 +1,114 @@
-from database.connection import get_connection
-
-SCHEMA = '''
-CREATE TABLE IF NOT EXISTS user_roles (
- user_role_id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE
-);
-CREATE TABLE IF NOT EXISTS services (
- service_id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE,
- unit TEXT NOT NULL, tariff NUMERIC NOT NULL CHECK(tariff >= 0)
-);
-CREATE TABLE IF NOT EXISTS payment_methods (
- method_id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE
-);
-CREATE TABLE IF NOT EXISTS users (
- user_id INTEGER PRIMARY KEY AUTOINCREMENT, login TEXT NOT NULL UNIQUE,
- password TEXT NOT NULL, full_name TEXT NOT NULL, address TEXT,
- user_role INTEGER NOT NULL REFERENCES user_roles(user_role_id)
-);
-CREATE TABLE IF NOT EXISTS accruals (
- accrual_id INTEGER PRIMARY KEY AUTOINCREMENT,
- resident_id INTEGER NOT NULL REFERENCES users(user_id),
- service_id INTEGER NOT NULL REFERENCES services(service_id),
- accountant_id INTEGER NOT NULL REFERENCES users(user_id),
- period TEXT NOT NULL, volume NUMERIC NOT NULL CHECK(volume >= 0),
- amount NUMERIC NOT NULL CHECK(amount >= 0)
-);
-CREATE TABLE IF NOT EXISTS payments (
- payment_id INTEGER PRIMARY KEY AUTOINCREMENT,
- accrual_id INTEGER NOT NULL REFERENCES accruals(accrual_id),
- method_id INTEGER NOT NULL REFERENCES payment_methods(method_id),
- amount NUMERIC NOT NULL CHECK(amount > 0), payment_date TEXT NOT NULL,
- status TEXT NOT NULL DEFAULT 'confirmed'
-);
-CREATE TABLE IF NOT EXISTS receipts (
- receipt_id INTEGER PRIMARY KEY AUTOINCREMENT,
- payment_id INTEGER NOT NULL UNIQUE REFERENCES payments(payment_id),
- number TEXT NOT NULL UNIQUE, issue_date TEXT NOT NULL
-);
-'''
+from database.database import get_connection
 
 def initialize():
-    with get_connection() as conn:
-        conn.executescript(SCHEMA)
-        # Роли и справочники создаются только в пустой базе; названия можно изменить в меню.
-        if conn.execute('SELECT COUNT(*) FROM user_roles').fetchone()[0] == 0:
-            conn.executemany('INSERT INTO user_roles(user_role_id, name) VALUES (?, ?)',
-                             [(0, 'Жилец'), (1, 'Бухгалтер'), (2, 'Администратор')])
-        if conn.execute('SELECT COUNT(*) FROM payment_methods').fetchone()[0] == 0:
-            conn.executemany('INSERT INTO payment_methods(method_id, name) VALUES (?, ?)',
-                             [(0, 'Банковская карта'), (1, 'Наличные'), (2, 'Онлайн-банк')])
-        if conn.execute('SELECT COUNT(*) FROM services').fetchone()[0] == 0:
-            conn.executemany('INSERT INTO services(service_id, name, unit, tariff) VALUES (?, ?, ?, ?)', [
-                (0, 'Холодная вода', 'м³', 45), (1, 'Горячая вода', 'м³', 210),
-                (2, 'Электроэнергия', 'кВт·ч', 5), (3, 'Отопление', 'м²', 1300)])
+    conn = get_connection()
+    cur = conn.cursor()
 
-if __name__ == '__main__':
-    initialize()
-    print('База данных инициализирована.')
+    # Роли
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS roles (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE
+    )
+    """)
+
+    # Пользователи
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        login TEXT NOT NULL UNIQUE,
+        password TEXT NOT NULL,
+        full_name TEXT NOT NULL,
+        address TEXT,
+        role_id INTEGER NOT NULL,
+        FOREIGN KEY (role_id) REFERENCES roles(id)
+    )
+    """)
+
+    # Услуги
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS services (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        unit TEXT,
+        tariff REAL NOT NULL
+    )
+    """)
+
+    # Начисления
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS accruals (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        service_id INTEGER NOT NULL,
+        volume REAL,
+        amount REAL NOT NULL,
+        period TEXT NOT NULL,
+        accountant_id INTEGER,
+        created_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (service_id) REFERENCES services(id),
+        FOREIGN KEY (accountant_id) REFERENCES users(id)
+    )
+    """)
+
+    # Способы оплаты
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS payment_methods (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE
+    )
+    """)
+
+    # Платежи
+    cur.execute("""
+    CREATE TABLE IF NOT EXISTS payments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER NOT NULL,
+        accrual_id INTEGER,
+        amount REAL NOT NULL,
+        payment_method_id INTEGER,
+        cashier_id INTEGER,
+        paid_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (user_id) REFERENCES users(id),
+        FOREIGN KEY (accrual_id) REFERENCES accruals(id),
+        FOREIGN KEY (payment_method_id) REFERENCES payment_methods(id),
+        FOREIGN KEY (cashier_id) REFERENCES users(id)
+    )
+    """)
+
+    # Начальные роли
+    cur.execute("INSERT OR IGNORE INTO roles (id, name) VALUES (1, 'Бухгалтер')")
+    cur.execute("INSERT OR IGNORE INTO roles (id, name) VALUES (2, 'Администратор')")
+    cur.execute("INSERT OR IGNORE INTO roles (id, name) VALUES (3, 'Жилец')")
+
+    # Способы оплаты
+    cur.execute("INSERT OR IGNORE INTO payment_methods (id, name) VALUES (1, 'Наличные')")
+    cur.execute("INSERT OR IGNORE INTO payment_methods (id, name) VALUES (2, 'Карта')")
+    cur.execute("INSERT OR IGNORE INTO payment_methods (id, name) VALUES (3, 'Перевод')")
+
+    # Тестовые услуги
+    cur.execute("INSERT OR IGNORE INTO services (id, name, unit, tariff) VALUES (1, 'Холодная вода', 'м³', 35.5)")
+    cur.execute("INSERT OR IGNORE INTO services (id, name, unit, tariff) VALUES (2, 'Горячая вода', 'м³', 180.0)")
+    cur.execute("INSERT OR IGNORE INTO services (id, name, unit, tariff) VALUES (3, 'Электричество', 'кВт·ч', 5.5)")
+    cur.execute("INSERT OR IGNORE INTO services (id, name, unit, tariff) VALUES (4, 'Отопление', 'Гкал', 2500.0)")
+
+    # Создаём администратора по умолчанию (логин: admin, пароль: admin)
+    cur.execute("SELECT id FROM users WHERE login = 'admin'")
+    if not cur.fetchone():
+        cur.execute(
+            "INSERT INTO users (login, password, full_name, address, role_id) VALUES (?, ?, ?, ?, ?)",
+            ("admin", "admin", "Администратор Системы", "Офис", 2)
+        )
+
+    # Создаём бухгалтера по умолчанию (логин: buh, пароль: buh)
+    cur.execute("SELECT id FROM users WHERE login = 'buh'")
+    if not cur.fetchone():
+        cur.execute(
+            "INSERT INTO users (login, password, full_name, address, role_id) VALUES (?, ?, ?, ?, ?)",
+            ("buh", "buh", "Иванова Мария Петровна", "Офис", 1)
+        )
+
+    conn.commit()
+    conn.close()
+    print("База данных успешно инициализирована.")
